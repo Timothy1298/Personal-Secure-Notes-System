@@ -1,0 +1,4 @@
+echo "vendor/" >> .gitignore
+echo "composer.lock" >> .gitignore
+echo ".env" >> .gitignore
+
