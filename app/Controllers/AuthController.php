@@ -5,21 +5,26 @@ use App\Models\User;
 use Core\Session;
 use Core\Logger;
 use Core\CSRF;
+use Core\Security;
+use Core\TwoFactorAuth;
+use Core\EmailService;
 use Core\Provider; // Assuming you have a Provider class for social APIs
 
+// Ensure Security class is loaded
+require_once __DIR__ . '/../../core/Security.php';
+
 // Social Login Providers Configuration
-// You MUST get these credentials from the respective developer consoles.
-// IMPORTANT: The redirect_uri must match the port you are using (3000).
+// Real OAuth credentials from environment variables
 $socialProviders = [
     'google' => [
-        'client_id' => 'YOUR_GOOGLE_CLIENT_ID',
-        'client_secret' => 'YOUR_GOOGLE_CLIENT_SECRET',
+        'client_id' => $_ENV['GOOGLE_CLIENT_ID'] ?? '1056131269048-i5ibcufnobb547cppbjd96b7c5i39efr.apps.googleusercontent.com',
+        'client_secret' => $_ENV['GOOGLE_CLIENT_SECRET'] ?? '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',
         'redirect_uri' => 'http://localhost:3000/social/google/callback',
         'scope' => 'email profile',
     ],
     'github' => [
-        'client_id' => 'YOUR_GITHUB_CLIENT_ID',
-        'client_secret' => 'YOUR_GITHUB_CLIENT_SECRET',
+        'client_id' => $_ENV['GITHUB_CLIENT_ID'] ?? 'Ov23liE0G2KEfFRMJhk3',
+        'client_secret' => $_ENV['GITHUB_CLIENT_SECRET'] ?? 'f4471951f42d8b2129c4718cf9dbf23464637c0c',
         'redirect_uri' => 'http://localhost:3000/social/github/callback',
         'scope' => 'user:email',
     ],
@@ -81,10 +86,12 @@ class AuthController {
     
     // Properties to store provider config
     private $providers;
+    private $db;
 
     public function __construct() {
         global $socialProviders;
         $this->providers = $socialProviders;
+        $this->db = \Core\Database::getInstance();
     }
 
     // Displays the registration form
@@ -94,16 +101,40 @@ class AuthController {
 
     // Handles user registration from the form
     public function register() {
-        $username = trim($_POST['username']);
-        $email = trim($_POST['email']);
-        $password = $_POST['password'];
-        $confirm = $_POST['confirm_password'];
+        // CSRF Protection
+        if (!CSRF::verify($_POST['csrf_token'] ?? '')) {
+            $_SESSION['errors'] = ["Invalid request. Please try again."];
+            header("Location: /register");
+            exit;
+        }
 
-        // Validation
+        // Rate Limiting
+        $ip = Security::getClientIP();
+        if (!Security::checkRateLimit($this->db, $ip, 5, 300)) { // 5 attempts per 5 minutes
+            $_SESSION['errors'] = ["Too many registration attempts. Please try again later."];
+            header("Location: /register");
+            exit;
+        }
+
+        $username = Security::sanitizeInput($_POST['username'] ?? '');
+        $email = Security::sanitizeInput($_POST['email'] ?? '', 'email');
+        $password = $_POST['password'] ?? '';
+        $confirm = $_POST['confirm_password'] ?? '';
+        $firstName = Security::sanitizeInput($_POST['first_name'] ?? '');
+        $lastName = Security::sanitizeInput($_POST['last_name'] ?? '');
+
+        // Enhanced Validation
         $errors = [];
+        
         if (strlen($username) < 4) $errors[] = "Username must be at least 4 characters.";
+        if (strlen($username) > 50) $errors[] = "Username must be less than 50 characters.";
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) $errors[] = "Username can only contain letters, numbers, and underscores.";
+        
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = "Invalid email format.";
-        if (strlen($password) < 8) $errors[] = "Password must be at least 8 characters.";
+        
+        $passwordErrors = Security::validatePasswordStrength($password);
+        $errors = array_merge($errors, $passwordErrors);
+        
         if ($password !== $confirm) $errors[] = "Passwords do not match.";
 
         if (User::findByEmailOrUsername($email) || User::findByEmailOrUsername($username)) {
@@ -115,9 +146,30 @@ class AuthController {
             header("Location: /register");
             exit;
         }
+        
 
-        User::create($username, $email, $password);
-        $_SESSION['success'] = "Account created! Please login.";
+        // Create user with enhanced data
+        $userId = User::create($username, $email, $password, $firstName, $lastName);
+        
+        if ($userId) {
+            // Send welcome email
+            EmailService::sendWelcomeEmail($email, $username);
+            
+            // Send email verification
+            $verificationToken = Security::generateToken();
+            User::createEmailVerification($userId, $verificationToken);
+            EmailService::sendEmailVerification($email, $username, $verificationToken);
+            
+            Security::logSecurityEvent($this->db, $userId, 'user_registered', 'user', $userId, [
+                'email' => $email,
+                'username' => $username
+            ]);
+            
+            $_SESSION['success'] = "Account created successfully! Please check your email to verify your account.";
+        } else {
+            $_SESSION['errors'] = ["Failed to create account. Please try again."];
+        }
+        
         header("Location: /login");
         exit;
     }
@@ -129,26 +181,166 @@ class AuthController {
 
     // Handles user login from the form
     public function login() {
-        $identifier = trim($_POST['identifier']);
-        $password = $_POST['password'];
+        // CSRF Protection
+        if (!CSRF::verify($_POST['csrf_token'] ?? '')) {
+            $_SESSION['errors'] = ["Invalid request. Please try again."];
+            header("Location: /login");
+            exit;
+        }
+
+        // Rate Limiting
+        $ip = Security::getClientIP();
+        if (!Security::checkRateLimit($this->db, $ip, 10, 300)) { // 10 attempts per 5 minutes
+            $_SESSION['errors'] = ["Too many login attempts. Please try again later."];
+            header("Location: /login");
+            exit;
+        }
+
+        $identifier = Security::sanitizeInput($_POST['identifier'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $rememberMe = isset($_POST['remember_me']);
+
         $user = User::findByEmailOrUsername($identifier);
 
-        if ($user && password_verify($password, $user['password_hash'])) {
-            Session::start();
-            session_regenerate_id(true);
-            Session::set('user_id', $user['id']);
-            Session::set('username', $user['username']);
+        if ($user && Security::verifyPassword($password, $user['password_hash'])) {
+            // Check if account is locked
+            if ($user['locked_until'] && strtotime($user['locked_until']) > time()) {
+                $_SESSION['errors'] = ["Account is temporarily locked. Please try again later."];
+                header("Location: /login");
+                exit;
+            }
 
-            Logger::log($user['id'], 'login_success');
+            // Check if 2FA is enabled
+            if ($user['two_factor_enabled']) {
+                // Store user data in session for 2FA verification
+                Session::start();
+                Session::set('2fa_user_id', $user['id']);
+                Session::set('2fa_username', $user['username']);
+                Session::set('2fa_remember_me', $rememberMe);
+                
+                // Send 2FA code via email
+                TwoFactorAuth::sendEmailCode($user['id'], $user['email']);
+                
+                header("Location: /2fa-verify");
+                exit;
+            }
 
-            header("Location: /dashboard");
-            exit;
+            // Complete login process
+            $this->completeLogin($user, $rememberMe);
         } else {
-            Logger::log($user['id'] ?? null, 'login_failed');
+            // Increment login attempts
+            if ($user) {
+                User::incrementLoginAttempts($user['id']);
+            }
+            
+        Security::logSecurityEvent($this->db, $user['id'] ?? 0, 'login_failed', 'user', null, [
+            'identifier' => $identifier,
+            'ip' => $ip
+        ]);
+            
             $_SESSION['errors'] = ["Invalid login credentials"];
             header("Location: /login");
             exit;
         }
+    }
+
+    // Complete login process
+    private function completeLogin($user, $rememberMe = false) {
+        Session::start();
+        session_regenerate_id(true);
+        
+        // Update user login info
+        User::updateLastLogin($user['id']);
+        User::resetLoginAttempts($user['id']);
+        
+        // Set session data
+        Session::set('user_id', $user['id']);
+        Session::set('username', $user['username']);
+        Session::set('email', $user['email']);
+        Session::set('login_time', time());
+        
+        // Remember me functionality
+        if ($rememberMe) {
+            $token = Security::generateToken();
+            User::createRememberToken($user['id'], $token);
+            
+            $cookieValue = base64_encode($user['id'] . ':' . $token);
+            setcookie('remember_token', $cookieValue, time() + (30 * 24 * 60 * 60), '/', '', true, true); // 30 days
+        }
+        
+        // Create session record
+        User::createSession($user['id'], session_id(), Security::getClientIP());
+        
+        Security::logSecurityEvent($this->db, $user['id'], 'login_success', 'user', $user['id'], [
+            'ip' => Security::getClientIP(),
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+        ]);
+
+        header("Location: /dashboard");
+        exit;
+    }
+
+    // Handle 2FA verification
+    public function verify2FA() {
+        if (!Session::get('2fa_user_id')) {
+            header("Location: /login");
+            exit;
+        }
+
+        $code = Security::sanitizeInput($_POST['2fa_code'] ?? '');
+        $userId = Session::get('2fa_user_id');
+        $rememberMe = Session::get('2fa_remember_me', false);
+
+        if (TwoFactorAuth::verifyCode($userId, $code)) {
+            // Get user data and complete login
+            $user = User::findById($userId);
+            if ($user) {
+                // Clear 2FA session data
+                Session::remove('2fa_user_id');
+                Session::remove('2fa_username');
+                Session::remove('2fa_remember_me');
+                
+                $this->completeLogin($user, $rememberMe);
+            }
+        } else {
+            $_SESSION['errors'] = ["Invalid 2FA code. Please try again."];
+            header("Location: /2fa-verify");
+            exit;
+        }
+    }
+
+    // Resend 2FA code
+    public function resend2FACode() {
+        if (!Session::get('2fa_user_id')) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid session']);
+            exit;
+        }
+
+        $userId = Session::get('2fa_user_id');
+        $user = User::findById($userId);
+        
+        if ($user) {
+            TwoFactorAuth::sendEmailCode($userId, $user['email']);
+            echo json_encode(['success' => true, 'message' => 'Code sent successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+        }
+        exit;
+    }
+
+    // Verify email
+    public function verifyEmail() {
+        $token = $_GET['token'] ?? '';
+        
+        if (User::verifyEmail($token)) {
+            $_SESSION['success'] = "Email verified successfully! You can now log in.";
+        } else {
+            $_SESSION['errors'] = ["Invalid or expired verification link."];
+        }
+        
+        header("Location: /login");
+        exit;
     }
 
     // Handles user logout

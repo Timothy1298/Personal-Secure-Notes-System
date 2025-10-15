@@ -85,12 +85,15 @@ class SettingsModel {
             }
 
             if (isset($data['tasks']) && is_array($data['tasks'])) {
-                $tasksSql = "INSERT INTO tasks (user_id, description, is_completed, created_at) VALUES (:user_id, :description, :is_completed, :created_at)";
+                $tasksSql = "INSERT INTO tasks (user_id, title, description, status, created_at) VALUES (:user_id, :title, :description, :status, :created_at)";
                 $tasksStmt = $this->db->prepare($tasksSql);
                 foreach ($data['tasks'] as $task) {
+                    $status = isset($task['is_completed']) && $task['is_completed'] ? 'completed' : 'pending';
+                    $title = isset($task['title']) ? $task['title'] : 'Imported Task';
                     $tasksStmt->bindValue(':user_id', $userId, \PDO::PARAM_INT);
+                    $tasksStmt->bindValue(':title', $title);
                     $tasksStmt->bindValue(':description', $task['description']);
-                    $tasksStmt->bindValue(':is_completed', $task['is_completed']);
+                    $tasksStmt->bindValue(':status', $status);
                     $tasksStmt->bindValue(':created_at', $task['created_at']);
                     $tasksStmt->execute();
                 }

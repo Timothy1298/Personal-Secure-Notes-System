@@ -56,21 +56,24 @@ class AuditLogsController
         }
     }
 
-    public function logEvent($user_id, $action, $ip = null, $user_agent = null)
+    public function logEvent($user_id, $action, $ip = null, $user_agent = null, $resource_type = null, $resource_id = null, $metadata = null)
     {
         $ip_address  = $ip ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
         $user_agent  = $user_agent ?? $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
 
         try {
             $stmt = $this->db->prepare(
-                "INSERT INTO audit_logs (user_id, action, ip_address, user_agent) 
-                 VALUES (:user_id, :action, :ip, :ua)"
+                "INSERT INTO audit_logs (user_id, action, resource_type, resource_id, ip_address, user_agent, metadata) 
+                 VALUES (:user_id, :action, :resource_type, :resource_id, :ip, :ua, :metadata)"
             );
             $stmt->execute([
                 ':user_id' => $user_id,
                 ':action'  => $action,
+                ':resource_type' => $resource_type,
+                ':resource_id' => $resource_id,
                 ':ip'      => $ip_address,
-                ':ua'      => $user_agent
+                ':ua'      => $user_agent,
+                ':metadata' => $metadata ? json_encode($metadata) : null
             ]);
         } catch (PDOException $e) {
             error_log("Failed to log audit event: " . $e->getMessage());

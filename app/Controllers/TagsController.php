@@ -56,4 +56,29 @@ class TagsController {
             exit;
         }
     }
+
+    public function apiGetAll() {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $userId = Session::get('user_id');
+            
+            try {
+                $stmt = $this->db->prepare("SELECT * FROM tags WHERE user_id = :uid ORDER BY name ASC");
+                $stmt->execute([':uid' => $userId]);
+                $tags = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'data' => $tags
+                ]);
+            } catch (\PDOException $e) {
+                header('Content-Type: application/json');
+                http_response_code(500);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Failed to fetch tags'
+                ]);
+            }
+        }
+    }
 }
