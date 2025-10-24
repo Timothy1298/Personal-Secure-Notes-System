@@ -4,6 +4,54 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard | SecureNote Pro</title>
+  
+  <!-- Theme CSS Variables -->
+  <style>
+    :root {
+      --color-primary: #3b82f6;
+      --color-secondary: #64748b;
+      --color-background: #ffffff;
+      --color-surface: #f8fafc;
+      --color-text: #1e293b;
+      --color-textSecondary: #64748b;
+      --color-border: #e2e8f0;
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-error: #ef4444;
+      --color-info: #06b6d4;
+    }
+    
+    .dark-mode {
+      --color-primary: #60a5fa;
+      --color-secondary: #94a3b8;
+      --color-background: #0f172a;
+      --color-surface: #1e293b;
+      --color-text: #f1f5f9;
+      --color-textSecondary: #94a3b8;
+      --color-border: #334155;
+      --color-success: #34d399;
+      --color-warning: #fbbf24;
+      --color-error: #f87171;
+      --color-info: #22d3ee;
+    }
+    
+    body {
+      background-color: var(--color-background);
+      color: var(--color-text);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    
+    .glassmorphism {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .dark-mode .glassmorphism {
+      background: rgba(30, 41, 59, 0.3);
+      border: 1px solid rgba(51, 65, 85, 0.3);
+    }
+  </style>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     // Suppress Tailwind production warning for development
@@ -310,8 +358,8 @@
         <div class="mb-8">
           <div class="flex items-center justify-between">
             <div class="animate-fade-in">
-              <h1 class="text-4xl font-bold gradient-text mb-2">Welcome back, <?= htmlspecialchars($user['first_name'] ?? $user['username']) ?>!</h1>
-              <p class="text-gray-600">Here's what's happening with your productivity today</p>
+              <h1 class="text-4xl font-bold gradient-text mb-2 dark:text-white">Welcome back, <?= htmlspecialchars($user['first_name'] ?? $user['username']) ?>!</h1>
+              <p class="text-gray-600 dark:text-gray-300">Here's what's happening with your productivity today</p>
               <div class="flex items-center gap-4 mt-4">
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
@@ -541,6 +589,20 @@
                     <span class="font-medium text-gray-800">Create New Note</span>
                   </div>
                 </button>
+
+                <button onclick="window.location.href='/voice-notes'" class="w-full btn-3d p-4 bg-purple-50 hover:bg-purple-100 rounded-xl text-left transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <i class="fas fa-microphone text-purple-600"></i>
+                    <span class="font-medium text-gray-800">Voice Notes</span>
+                  </div>
+                </button>
+
+                <button onclick="window.location.href='/ocr'" class="w-full btn-3d p-4 bg-orange-50 hover:bg-orange-100 rounded-xl text-left transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <i class="fas fa-eye text-orange-600"></i>
+                    <span class="font-medium text-gray-800">OCR</span>
+                  </div>
+                </button>
                 
                 <button onclick="window.location.href='/tasks'" class="w-full btn-3d p-4 bg-green-50 hover:bg-green-100 rounded-xl text-left transition-all duration-200">
                   <div class="flex items-center gap-3">
@@ -553,6 +615,41 @@
                   <div class="flex items-center gap-3">
                     <i class="fas fa-search text-purple-600"></i>
                     <span class="font-medium text-gray-800">Quick Search</span>
+                  </div>
+                </button>
+                
+                <button onclick="window.location.href='/automation'" class="w-full btn-3d p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-left transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <i class="fas fa-robot text-indigo-600"></i>
+                    <span class="font-medium text-gray-800">Automation</span>
+                  </div>
+                </button>
+                
+                <button onclick="window.location.href='/integrations'" class="w-full btn-3d p-4 bg-teal-50 hover:bg-teal-100 rounded-xl text-left transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <i class="fas fa-plug text-teal-600"></i>
+                    <span class="font-medium text-gray-800">Integrations</span>
+                  </div>
+                </button>
+                
+                <button onclick="window.location.href='/analytics'" class="w-full btn-3d p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-left transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <i class="fas fa-chart-line text-indigo-600"></i>
+                    <span class="font-medium text-gray-800">Analytics</span>
+                  </div>
+                </button>
+                
+                <button onclick="window.location.href='/data-management'" class="w-full btn-3d p-4 bg-purple-50 hover:bg-purple-100 rounded-xl text-left transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <i class="fas fa-database text-purple-600"></i>
+                    <span class="font-medium text-gray-800">Data Management</span>
+                  </div>
+                </button>
+                
+                <button onclick="window.location.href='/database'" class="w-full btn-3d p-4 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-left transition-all duration-200">
+                  <div class="flex items-center gap-3">
+                    <i class="fas fa-server text-indigo-600"></i>
+                    <span class="font-medium text-gray-800">Database Management</span>
                   </div>
                 </button>
                 
@@ -731,6 +828,8 @@
       initializeDashboard();
       updateTime();
       setInterval(updateTime, 1000);
+      initializeTheme();
+      initializeKeyboardShortcuts();
     });
 
     function initializeDashboard() {
@@ -1083,26 +1182,39 @@
 
     // Weather and external data
     function loadWeather() {
-      // This would typically call a weather API
-      // For demo purposes, we'll use mock data
-      setTimeout(() => {
+      // Use dynamic weather data from PHP
+      <?php if (isset($dynamicContent['weather'])): ?>
+        const weather = <?php echo json_encode($dynamicContent['weather']); ?>;
+        document.getElementById('temperature').textContent = weather.temperature + '°C';
+        document.getElementById('weatherDescription').textContent = weather.description;
+        document.getElementById('location').textContent = weather.location;
+      <?php else: ?>
+        // Fallback to default weather
         document.getElementById('temperature').textContent = '22°C';
         document.getElementById('weatherDescription').textContent = 'Partly Cloudy';
         document.getElementById('location').textContent = 'New York, NY';
-      }, 1000);
+      <?php endif; ?>
     }
 
     function loadMotivationalQuote() {
-      const quotes = [
-        { text: "The way to get started is to quit talking and begin doing.", author: "Walt Disney" },
-        { text: "Don't be pushed around by the fears in your mind. Be led by the dreams in your heart.", author: "Roy T. Bennett" },
-        { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
-        { text: "The future belongs to those who believe in the beauty of their dreams.", author: "Eleanor Roosevelt" }
-      ];
-      
-      const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-      document.getElementById('motivationalQuote').textContent = `"${randomQuote.text}"`;
-      document.getElementById('quoteAuthor').textContent = `- ${randomQuote.author}`;
+      // Use dynamic quote data from PHP
+      <?php if (isset($dynamicContent['quote'])): ?>
+        const quote = <?php echo json_encode($dynamicContent['quote']); ?>;
+        document.getElementById('motivationalQuote').textContent = `"${quote.text}"`;
+        document.getElementById('quoteAuthor').textContent = `- ${quote.author}`;
+      <?php else: ?>
+        // Fallback to default quotes
+        const quotes = [
+          { text: "The way to get started is to quit talking and begin doing.", author: "Walt Disney" },
+          { text: "Don't be pushed around by the fears in your mind. Be led by the dreams in your heart.", author: "Roy T. Bennett" },
+          { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
+          { text: "The future belongs to those who believe in the beauty of their dreams.", author: "Eleanor Roosevelt" }
+        ];
+        
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        document.getElementById('motivationalQuote').textContent = `"${randomQuote.text}"`;
+        document.getElementById('quoteAuthor').textContent = `- ${randomQuote.author}`;
+      <?php endif; ?>
     }
 
     // Mood tracking
@@ -1172,6 +1284,119 @@
       const modal = document.getElementById(modalId);
       modal.classList.add('hidden');
     }
+
+    // Theme Management
+    function initializeTheme() {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      applyTheme(savedTheme);
+    }
+
+    function toggleDarkMode() {
+      const currentTheme = localStorage.getItem('theme') || 'light';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(newTheme);
+      localStorage.setItem('theme', newTheme);
+      
+      // Save to server
+      fetch('/settings/theme', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+          theme: newTheme,
+          csrf_token: document.querySelector('input[name="csrf_token"]').value
+        })
+      });
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.classList.toggle('dark-mode', theme === 'dark');
+    }
+
+    // Keyboard Shortcuts
+    function initializeKeyboardShortcuts() {
+      document.addEventListener('keydown', function(e) {
+        // Global shortcuts
+        if (e.ctrlKey || e.metaKey) {
+          switch(e.key) {
+            case 'n':
+              e.preventDefault();
+              window.location.href = '/notes/create';
+              break;
+            case 't':
+              e.preventDefault();
+              window.location.href = '/tasks/create';
+              break;
+            case 'k':
+              e.preventDefault();
+              openQuickSearch();
+              break;
+            case '/':
+              e.preventDefault();
+              showShortcuts();
+              break;
+            case ',':
+              e.preventDefault();
+              window.location.href = '/settings';
+              break;
+            case 'h':
+              e.preventDefault();
+              window.location.href = '/dashboard';
+              break;
+          }
+        }
+        
+        // Toggle dark mode
+        if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+          e.preventDefault();
+          toggleDarkMode();
+        }
+        
+        // Escape key
+        if (e.key === 'Escape') {
+          closeQuickSearch();
+        }
+      });
+    }
+
+    function showShortcuts() {
+      const shortcuts = {
+        'Global Shortcuts': [
+          { key: 'Ctrl+N', action: 'Create new note' },
+          { key: 'Ctrl+T', action: 'Create new task' },
+          { key: 'Ctrl+K', action: 'Open quick search' },
+          { key: 'Ctrl+/', action: 'Show keyboard shortcuts' },
+          { key: 'Ctrl+,', action: 'Open settings' },
+          { key: 'Ctrl+H', action: 'Go to dashboard' },
+          { key: 'Ctrl+Shift+D', action: 'Toggle dark mode' },
+          { key: 'Escape', action: 'Close modal/dialog' }
+        ]
+      };
+      
+      let html = '<div class="keyboard-shortcuts-modal">';
+      html += '<h3 class="text-xl font-bold mb-4">Keyboard Shortcuts</h3>';
+      
+      for (const [category, shortcuts] of Object.entries(shortcuts)) {
+        html += `<div class="mb-4"><h4 class="font-semibold mb-2">${category}</h4>`;
+        shortcuts.forEach(shortcut => {
+          html += `<div class="flex justify-between items-center py-1">`;
+          html += `<kbd class="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">${shortcut.key}</kbd>`;
+          html += `<span class="text-sm">${shortcut.action}</span>`;
+          html += `</div>`;
+        });
+        html += '</div>';
+      }
+      
+      html += '</div>';
+      
+      showModal('shortcutsModal', html);
+    }
+
+    // Make functions globally available
+    window.toggleDarkMode = toggleDarkMode;
+    window.showShortcuts = showShortcuts;
 
     // Toast function uses local dashboard system
     function showToast(message, type = 'info') {

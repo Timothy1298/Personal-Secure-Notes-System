@@ -1,0 +1,135 @@
+{
+  "name": "personal-notes-desktop",
+  "version": "1.0.0",
+  "description": "Personal Notes System Desktop Application",
+  "main": "src/main.js",
+  "homepage": "./",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run start-react\" \"wait-on http://localhost:3000 && electron .\"",
+    "start-react": "react-scripts start",
+    "build": "react-scripts build",
+    "build-electron": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --publish=never",
+    "dist-win": "npm run build && electron-builder --win",
+    "dist-mac": "npm run build && electron-builder --mac",
+    "dist-linux": "npm run build && electron-builder --linux",
+    "pack": "electron-builder --dir",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron": "^27.0.0",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.4",
+    "electron-window-state": "^5.0.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "axios": "^1.6.0",
+    "moment": "^2.29.4",
+    "lodash": "^4.17.21",
+    "@mui/material": "^5.15.0",
+    "@mui/icons-material": "^5.15.0",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "react-markdown": "^9.0.1",
+    "react-syntax-highlighter": "^15.5.0",
+    "react-dropzone": "^14.2.3",
+    "react-hotkeys-hook": "^4.4.1",
+    "react-use": "^17.4.2",
+    "framer-motion": "^10.16.16",
+    "react-beautiful-dnd": "^13.1.1",
+    "react-virtualized": "^9.22.5",
+    "react-window": "^1.8.8",
+    "react-window-infinite-loader": "^1.0.9",
+    "react-intersection-observer": "^9.5.3",
+    "react-helmet-async": "^2.0.4",
+    "react-query": "^3.39.3",
+    "zustand": "^4.4.7",
+    "immer": "^10.0.3",
+    "nanoid": "^5.0.4",
+    "date-fns": "^2.30.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.2.0"
+  },
+  "devDependencies": {
+    "react-scripts": "5.0.1",
+    "electron-builder": "^24.6.4",
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0",
+    "cross-env": "^7.0.3",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@types/lodash": "^4.14.202",
+    "typescript": "^5.3.3",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1"
+  },
+  "build": {
+    "appId": "com.personalnotes.desktop",
+    "productName": "Personal Notes",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/**/*",
+      "src/main.js",
+      "src/preload.js",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "your-username",
+      "repo": "personal-notes-desktop"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

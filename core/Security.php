@@ -184,7 +184,7 @@ class Security
             $stmt = $db->prepare("
                 SELECT COUNT(*) as attempts 
                 FROM rate_limits 
-                WHERE rate_key = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)
+                WHERE endpoint = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? SECOND)
             ");
             $stmt->execute([$identifier, $timeWindow]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -203,7 +203,7 @@ class Security
     {
         try {
             $stmt = $db->prepare("
-                INSERT INTO rate_limits (rate_key, ip_address, created_at) 
+                INSERT INTO rate_limits (endpoint, ip_address, created_at) 
                 VALUES (?, ?, NOW())
             ");
             $stmt->execute([$identifier, $_SERVER['REMOTE_ADDR'] ?? 'unknown']);

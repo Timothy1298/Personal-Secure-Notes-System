@@ -1,0 +1,218 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-west-2.amazonaws.com
+  ECR_REPOSITORY: personal-notes
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: personal_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, dom, fileinfo, mysql, redis, gd, zip, intl
+        coverage: xdebug
+
+    - name: Install Composer dependencies
+      run: composer install --prefer-dist --no-progress
+
+    - name: Copy environment file
+      run: cp .env.example .env
+
+    - name: Generate application key
+      run: php -r "echo 'APP_KEY=' . base64_encode(random_bytes(32)) . PHP_EOL;" >> .env
+
+    - name: Run database migrations
+      run: php create_missing_tables.php
+      env:
+        DB_HOST: 127.0.0.1
+        DB_DATABASE: personal_test
+        DB_USERNAME: root
+        DB_PASSWORD: password
+
+    - name: Run PHPUnit tests
+      run: vendor/bin/phpunit --coverage-clover coverage.xml
+      env:
+        DB_HOST: 127.0.0.1
+        DB_DATABASE: personal_test
+        DB_USERNAME: root
+        DB_PASSWORD: password
+        REDIS_HOST: 127.0.0.1
+        REDIS_PORT: 6379
+
+    - name: Run PHPStan static analysis
+      run: vendor/bin/phpstan analyse --level=8
+
+    - name: Run PHP CS Fixer
+      run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  build:
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+        IMAGE_TAG: ${{ env.IMAGE_TAG }}
+      run: |
+        # Build a docker container and push it to ECR
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Configure kubectl
+      run: |
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name personal-notes-cluster
+
+    - name: Deploy to Kubernetes
+      run: |
+        # Update image tag in deployment
+        sed -i "s|image: personal-notes:latest|image: ${{ needs.build.outputs.image }}|g" kubernetes/app.yaml
+        
+        # Apply Kubernetes manifests
+        kubectl apply -f kubernetes/namespace.yaml
+        kubectl apply -f kubernetes/secrets.yaml
+        kubectl apply -f kubernetes/configmap.yaml
+        kubectl apply -f kubernetes/mysql.yaml
+        kubectl apply -f kubernetes/redis.yaml
+        kubectl apply -f kubernetes/app.yaml
+        kubectl apply -f kubernetes/ingress.yaml
+        kubectl apply -f kubernetes/hpa.yaml
+        kubectl apply -f kubernetes/monitoring.yaml
+
+    - name: Wait for deployment to complete
+      run: |
+        kubectl rollout status deployment/personal-notes-app -n personal-notes --timeout=600s
+
+    - name: Run database migrations
+      run: |
+        POD_NAME=$(kubectl get pods -n personal-notes -l app=personal-notes-app -o jsonpath='{.items[0].metadata.name}')
+        kubectl exec -n personal-notes $POD_NAME -- php create_missing_tables.php
+
+    - name: Verify deployment
+      run: |
+        # Check if all pods are running
+        kubectl get pods -n personal-notes
+        
+        # Check service endpoints
+        kubectl get services -n personal-notes
+        
+        # Check ingress
+        kubectl get ingress -n personal-notes
+        
+        # Health check
+        POD_NAME=$(kubectl get pods -n personal-notes -l app=personal-notes-app -o jsonpath='{.items[0].metadata.name}')
+        kubectl exec -n personal-notes $POD_NAME -- curl -f http://localhost/health
+
+  notify:
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify deployment status
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      if: always()

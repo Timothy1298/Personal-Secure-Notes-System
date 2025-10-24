@@ -1,0 +1,234 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: personal-notes-app
+  namespace: personal-notes
+  labels:
+    app: personal-notes-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: personal-notes-app
+  template:
+    metadata:
+      labels:
+        app: personal-notes-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: app-files
+          mountPath: /var/www/html
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      - name: php-fpm
+        image: personal-notes:latest
+        ports:
+        - containerPort: 9000
+        env:
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: personal-notes-config
+              key: APP_ENV
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: personal-notes-config
+              key: DB_HOST
+        - name: DB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: personal-notes-config
+              key: DB_DATABASE
+        - name: DB_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: personal-notes-config
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: personal-notes-secrets
+              key: DB_PASSWORD
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: personal-notes-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: personal-notes-config
+              key: REDIS_PORT
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: personal-notes-secrets
+              key: JWT_SECRET
+        - name: APP_KEY
+          valueFrom:
+            secretKeyRef:
+              name: personal-notes-secrets
+              key: APP_KEY
+        volumeMounts:
+        - name: app-files
+          mountPath: /var/www/html
+        - name: app-storage
+          mountPath: /var/www/html/storage
+        - name: app-exports
+          mountPath: /var/www/html/exports
+        - name: app-imports
+          mountPath: /var/www/html/imports
+        - name: app-backups
+          mountPath: /var/www/html/backups
+        - name: app-uploads
+          mountPath: /var/www/html/uploads
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - php-fpm
+            - -t
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - php
+            - -r
+            - "if (file_get_contents('http://localhost/health') === 'healthy') exit(0); else exit(1);"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: app-files
+        emptyDir: {}
+      - name: app-storage
+        persistentVolumeClaim:
+          claimName: app-storage-pvc
+      - name: app-exports
+        persistentVolumeClaim:
+          claimName: app-exports-pvc
+      - name: app-imports
+        persistentVolumeClaim:
+          claimName: app-imports-pvc
+      - name: app-backups
+        persistentVolumeClaim:
+          claimName: app-backups-pvc
+      - name: app-uploads
+        persistentVolumeClaim:
+          claimName: app-uploads-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personal-notes-service
+  namespace: personal-notes
+  labels:
+    app: personal-notes-app
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: personal-notes-app
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-storage-pvc
+  namespace: personal-notes
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-exports-pvc
+  namespace: personal-notes
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-imports-pvc
+  namespace: personal-notes
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-backups-pvc
+  namespace: personal-notes
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-uploads-pvc
+  namespace: personal-notes
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: gp2

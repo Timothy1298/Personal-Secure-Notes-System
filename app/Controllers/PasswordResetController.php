@@ -1,80 +1,201 @@
 <?php
 namespace App\Controllers;
 
-use App\Models\User;
 use Core\Database;
+use Core\Security;
+use Core\Session;
+use App\Models\User;
+use Exception;
+use PDO;
 
 class PasswordResetController {
+    private $db;
 
-    public function requestForm() {
-        include __DIR__ . '/../Views/password_request.php';
+    public function __construct() {
+        $this->db = Database::getInstance();
     }
 
-    public function sendResetLink() {
-        $email = trim($_POST['email']);
-        $user = User::findByEmailOrUsername($email);
-
-        // Security: Do not reveal if the email exists to prevent user enumeration
-        if ($user) {
-            $token = bin2hex(random_bytes(32));
-            $expires = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-
-            $db = Database::getInstance();
-            $stmt = $db->prepare("INSERT INTO password_resets (user_id, token, expires_at) VALUES (:uid, :token, :exp)");
-            $stmt->execute([
-                ':uid' => $user['id'],
-                ':token' => $token,
-                ':exp' => $expires
-            ]);
-
-            $resetLink = "http://localhost:3000/password-reset-form?token=$token";
-            // In a real app, use a proper email library
-            mail($user['email'], "Password Reset", "Reset your password: $resetLink");
-        }
-
-        $_SESSION['success'] = "If an account with that email exists, a password reset link has been sent.";
-        header("Location: /login");
-        exit;
-    }
-
-    public function resetForm() {
-        $token = $_GET['token'] ?? '';
+    /**
+     * Show password reset form
+     */
+    public function showResetForm() {
         include __DIR__ . '/../Views/password_reset.php';
     }
 
-    public function reset() {
-        $token = $_POST['token'] ?? '';
-        $password = $_POST['password'] ?? '';
-        $confirm = $_POST['confirm_password'] ?? '';
-
-        if ($password !== $confirm) {
-            $_SESSION['errors'] = ["Passwords do not match"];
-            header("Location: /password-reset-form?token=$token");
-            exit;
-        }
-
-        $db = Database::getInstance();
-        $stmt = $db->prepare("SELECT * FROM password_resets WHERE token = :token AND expires_at > NOW() LIMIT 1");
-        $stmt->execute([':token' => $token]);
-        $reset = $stmt->fetch();
-
-        if (!$reset) {
-            $_SESSION['errors'] = ["Invalid or expired token"];
+    /**
+     * Process password reset request
+     */
+    public function resetPassword() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header("Location: /password-reset");
             exit;
         }
 
-        $stmt = $db->prepare("UPDATE users SET password_hash = :pw WHERE id = :uid");
-        $stmt->execute([
-            ':pw' => password_hash($password, PASSWORD_DEFAULT),
-            ':uid' => $reset['user_id']
-        ]);
+        $email = $_POST['email'] ?? '';
+        $newPassword = $_POST['new_password'] ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
 
-        $stmt = $db->prepare("DELETE FROM password_resets WHERE id = :id");
-        $stmt->execute([':id' => $reset['id']]);
+        // Validate input
+        if (empty($email) || empty($newPassword) || empty($confirmPassword)) {
+            $error = "All fields are required.";
+            include __DIR__ . '/../Views/password_reset.php';
+            return;
+        }
 
-        $_SESSION['success'] = "Password reset successful! Please login.";
-        header("Location: /login");
-        exit;
+        if ($newPassword !== $confirmPassword) {
+            $error = "Passwords do not match.";
+            include __DIR__ . '/../Views/password_reset.php';
+            return;
+        }
+
+        // Validate password strength
+        $passwordValidation = Security::validatePasswordStrength($newPassword);
+        if (!$passwordValidation['valid']) {
+            $error = "Password does not meet requirements: " . implode(', ', $passwordValidation['errors']);
+            include __DIR__ . '/../Views/password_reset.php';
+            return;
+        }
+
+        try {
+            // Check if user exists
+            $stmt = $this->db->prepare("SELECT id, username, email FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                $error = "No account found with that email address.";
+                include __DIR__ . '/../Views/password_reset.php';
+                return;
+            }
+
+            // Hash the new password
+            $hashedPassword = Security::hashPassword($newPassword);
+
+            // Update password in database
+            $stmt = $this->db->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$hashedPassword, $user['id']]);
+
+            // Log the password reset
+            Security::logSecurityEvent($this->db, $user['id'], 'password_reset', 'user', $user['id'], [
+                'email' => $email,
+                'ip_address' => Security::getClientIP()
+            ]);
+
+            $success = "Password has been successfully reset! You can now login with your new password.";
+            include __DIR__ . '/../Views/password_reset.php';
+
+        } catch (Exception $e) {
+            $error = "An error occurred while resetting your password. Please try again.";
+            include __DIR__ . '/../Views/password_reset.php';
+        }
+    }
+
+    /**
+     * Direct password reset for admin use (bypasses email verification)
+     */
+    public function directReset() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header("Location: /password-reset");
+            exit;
+        }
+
+        $username = $_POST['username'] ?? '';
+        $newPassword = $_POST['new_password'] ?? '';
+
+        if (empty($username) || empty($newPassword)) {
+            $error = "Username and new password are required.";
+            include __DIR__ . '/../Views/password_reset.php';
+            return;
+        }
+
+        try {
+            // Find user by username
+            $stmt = $this->db->prepare("SELECT id, username, email FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                $error = "User not found.";
+                include __DIR__ . '/../Views/password_reset.php';
+                return;
+            }
+
+            // Hash the new password
+            $hashedPassword = Security::hashPassword($newPassword);
+
+            // Update password
+            $stmt = $this->db->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$hashedPassword, $user['id']]);
+
+            $success = "Password for user '{$user['username']}' has been successfully reset!";
+            include __DIR__ . '/../Views/password_reset.php';
+
+        } catch (Exception $e) {
+            $error = "An error occurred: " . $e->getMessage();
+            include __DIR__ . '/../Views/password_reset.php';
+        }
+    }
+
+    /**
+     * API endpoint for password reset
+     */
+    public function apiResetPassword() {
+        header('Content-Type: application/json');
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+            exit;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $email = $input['email'] ?? '';
+        $newPassword = $input['new_password'] ?? '';
+
+        if (empty($email) || empty($newPassword)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Email and new password are required']);
+            exit;
+        }
+
+        try {
+            // Check if user exists
+            $stmt = $this->db->prepare("SELECT id, username, email FROM users WHERE email = ?");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'User not found']);
+                exit;
+            }
+
+            // Hash the new password
+            $hashedPassword = Security::hashPassword($newPassword);
+
+            // Update password
+            $stmt = $this->db->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$hashedPassword, $user['id']]);
+
+            // Log the password reset
+            Security::logSecurityEvent($this->db, $user['id'], 'password_reset', 'user', $user['id'], [
+                'email' => $email,
+                'ip_address' => Security::getClientIP()
+            ]);
+
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Password reset successfully',
+                'user' => [
+                    'id' => $user['id'],
+                    'username' => $user['username'],
+                    'email' => $user['email']
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Internal server error']);
+        }
     }
 }

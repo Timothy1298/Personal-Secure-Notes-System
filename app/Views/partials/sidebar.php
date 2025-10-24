@@ -136,6 +136,94 @@ function isActivePrefix($prefix, $currentPath) {
             </li>
         </ul>
 
+        <!-- Divider for Advanced Features -->
+        <hr class="my-4 border-t border-[#374151]">
+        
+        <p class="text-xs text-gray-500 uppercase px-3 py-1 font-bold tracking-wider section-title">Advanced Features</p>
+        <ul class="space-y-1">
+            <li class="nav-item">
+                <a href="/voice-notes" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/voice-notes', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-microphone w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Voice Notes</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/ocr" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/ocr', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-camera w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">OCR Scanner</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/ai-assistant" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/ai-assistant', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-robot w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">AI Assistant</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Divider for Collaboration -->
+        <hr class="my-4 border-t border-[#374151]">
+        
+        <p class="text-xs text-gray-500 uppercase px-3 py-1 font-bold tracking-wider section-title">Collaboration</p>
+        <ul class="space-y-1">
+            <li class="nav-item">
+                <a href="/teams" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/teams', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-users w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Teams</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/shared" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/shared', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-share-alt w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Shared Content</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Divider for Integrations -->
+        <hr class="my-4 border-t border-[#374151]">
+        
+        <p class="text-xs text-gray-500 uppercase px-3 py-1 font-bold tracking-wider section-title">Integrations</p>
+        <ul class="space-y-1">
+            <li class="nav-item">
+                <a href="/integrations" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/integrations', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-plug w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Third-Party Apps</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/automation" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/automation', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-cogs w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Automation</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Divider for Analytics -->
+        <hr class="my-4 border-t border-[#374151]">
+        
+        <p class="text-xs text-gray-500 uppercase px-3 py-1 font-bold tracking-wider section-title">Analytics & Data</p>
+        <ul class="space-y-1">
+            <li class="nav-item">
+                <a href="/analytics" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/analytics', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-chart-line w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Analytics</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/data-management" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/data-management', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-database w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Data Management</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="/database" class="group flex items-center p-3 rounded-xl text-sm font-semibold text-gray-300 hover:bg-[#374151] hover:text-white transition-colors duration-200 <?= isActive('/database', $currentPath) ? 'active-link' : '' ?>">
+                    <i class="fas fa-server w-5 mr-4 text-lg"></i>
+                    <span class="nav-text">Database Tools</span>
+                </a>
+            </li>
+        </ul>
+
         <!-- Divider for Tools -->
         <hr class="my-4 border-t border-[#374151]">
         

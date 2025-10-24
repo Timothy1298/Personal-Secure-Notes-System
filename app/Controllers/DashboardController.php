@@ -4,6 +4,10 @@ namespace App\Controllers;
 use Core\Session;
 use Core\CSRF;
 use Core\Database;
+use Core\DynamicContentService;
+use Core\Cache;
+use Core\ThemeManager;
+use Core\KeyboardShortcuts;
 use App\Models\NotesModel;
 use App\Models\TasksModel;
 use App\Models\User;
@@ -14,11 +18,19 @@ class DashboardController {
     private $db;
     private $notesModel;
     private $tasksModel;
+    private $dynamicContentService;
+    private $cache;
+    private $themeManager;
+    private $keyboardShortcuts;
 
     public function __construct() {
         $this->db = Database::getInstance();
         $this->notesModel = new NotesModel($this->db);
         $this->tasksModel = new TasksModel($this->db);
+        $this->dynamicContentService = new DynamicContentService($this->db);
+        $this->cache = Cache::getInstance($this->db);
+        $this->themeManager = new ThemeManager($this->db);
+        $this->keyboardShortcuts = new KeyboardShortcuts($this->db);
     }
 
     public function index() {
@@ -63,6 +75,9 @@ class DashboardController {
                 'daily_streak' => $this->calculateDailyStreak($tasks, $notes)
             ];
             
+            // Get dynamic content
+            $dynamicContent = $this->dynamicContentService->getDashboardContent($userId);
+            
         } catch (Exception $e) {
             // Fallback stats if database fails
             $user = [
@@ -78,6 +93,20 @@ class DashboardController {
                 'notes_this_week' => 0,
                 'productivity_score' => 0,
                 'daily_streak' => 0
+            ];
+            $dynamicContent = [
+                'weather' => [
+                    'location' => 'New York, NY',
+                    'temperature' => 22.0,
+                    'description' => 'Partly Cloudy',
+                    'humidity' => 65,
+                    'wind_speed' => 12.0
+                ],
+                'quote' => [
+                    'text' => 'The way to get started is to quit talking and begin doing.',
+                    'author' => 'Walt Disney',
+                    'category' => 'motivation'
+                ]
             ];
         }
         

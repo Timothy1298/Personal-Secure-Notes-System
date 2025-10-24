@@ -31,7 +31,7 @@ class RateLimiter {
         // Count current requests within the window
         $stmt = $this->db->prepare("
             SELECT COUNT(*) FROM rate_limits 
-            WHERE rate_key = ? AND identifier = ? AND created_at > FROM_UNIXTIME(?)
+            WHERE endpoint = ? AND ip_address = ? AND created_at > FROM_UNIXTIME(?)
         ");
         $stmt->execute([$key, $identifier, $expirationTime]);
         $count = $stmt->fetchColumn();
@@ -53,7 +53,7 @@ class RateLimiter {
      */
     private function record(string $key, string $identifier): void {
         $stmt = $this->db->prepare("
-            INSERT INTO rate_limits (rate_key, identifier, created_at)
+            INSERT INTO rate_limits (endpoint, ip_address, created_at)
             VALUES (?, ?, NOW())
         ");
         $stmt->execute([$key, $identifier]);
@@ -68,7 +68,7 @@ class RateLimiter {
     private function cleanup(string $key, string $identifier, int $expirationTime): void {
         $stmt = $this->db->prepare("
             DELETE FROM rate_limits 
-            WHERE rate_key = ? AND identifier = ? AND created_at < FROM_UNIXTIME(?)
+            WHERE endpoint = ? AND ip_address = ? AND created_at < FROM_UNIXTIME(?)
         ");
         $stmt->execute([$key, $identifier, $expirationTime]);
     }
@@ -85,7 +85,7 @@ class RateLimiter {
 
         $stmt = $this->db->prepare("
             SELECT COUNT(*) FROM rate_limits 
-            WHERE rate_key = ? AND identifier = ? AND created_at > FROM_UNIXTIME(?)
+            WHERE endpoint = ? AND ip_address = ? AND created_at > FROM_UNIXTIME(?)
         ");
         $stmt->execute([$key, $identifier, $expirationTime]);
         $count = $stmt->fetchColumn();
@@ -102,7 +102,7 @@ class RateLimiter {
     public function getResetTime(string $key, string $identifier): int {
         $stmt = $this->db->prepare("
             SELECT MIN(UNIX_TIMESTAMP(created_at)) FROM rate_limits 
-            WHERE rate_key = ? AND identifier = ?
+            WHERE endpoint = ? AND ip_address = ?
         ");
         $stmt->execute([$key, $identifier]);
         $firstRequestTime = $stmt->fetchColumn();
