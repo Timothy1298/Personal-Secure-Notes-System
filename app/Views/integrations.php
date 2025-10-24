@@ -20,17 +20,17 @@
         </div>
 
         <!-- Success/Error Messages -->
-        <?php if (Session::get('success')): ?>
+        <?php if (\Core\Session::get('success')): ?>
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-                <?= htmlspecialchars(Session::get('success')) ?>
-                <?php Session::delete('success'); ?>
+                <?= htmlspecialchars(\Core\Session::get('success')) ?>
+                <?php \Core\Session::delete('success'); ?>
             </div>
         <?php endif; ?>
 
-        <?php if (Session::get('error')): ?>
+        <?php if (\Core\Session::get('error')): ?>
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                <?= htmlspecialchars(Session::get('error')) ?>
-                <?php Session::delete('error'); ?>
+                <?= htmlspecialchars(\Core\Session::get('error')) ?>
+                <?php \Core\Session::delete('error'); ?>
             </div>
         <?php endif; ?>
 

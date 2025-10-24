@@ -38,6 +38,78 @@ class UserBehaviorAnalytics {
     }
     
     /**
+     * Get user behavior summary
+     */
+    public function getUserBehaviorSummary($userId, $days = 30) {
+        try {
+            $stmt = $this->db->prepare("
+                SELECT 
+                    action,
+                    COUNT(*) as count,
+                    DATE(created_at) as date
+                FROM user_behavior_events 
+                WHERE user_id = ? 
+                AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                GROUP BY action, DATE(created_at)
+                ORDER BY date DESC, count DESC
+            ");
+            
+            $stmt->execute([$userId, $days]);
+            $activity = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get most active hours
+            $stmt = $this->db->prepare("
+                SELECT 
+                    HOUR(created_at) as hour,
+                    COUNT(*) as count
+                FROM user_behavior_events 
+                WHERE user_id = ? 
+                AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                GROUP BY HOUR(created_at)
+                ORDER BY count DESC
+                LIMIT 5
+            ");
+            
+            $stmt->execute([$userId, $days]);
+            $activeHours = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get feature usage
+            $stmt = $this->db->prepare("
+                SELECT 
+                    JSON_EXTRACT(data, '$.feature') as feature,
+                    COUNT(*) as count
+                FROM user_behavior_events 
+                WHERE user_id = ? 
+                AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                AND JSON_EXTRACT(data, '$.feature') IS NOT NULL
+                GROUP BY JSON_EXTRACT(data, '$.feature')
+                ORDER BY count DESC
+                LIMIT 10
+            ");
+            
+            $stmt->execute([$userId, $days]);
+            $featureUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'activity' => $activity,
+                'active_hours' => $activeHours,
+                'feature_usage' => $featureUsage,
+                'total_actions' => array_sum(array_column($activity, 'count')),
+                'unique_actions' => count(array_unique(array_column($activity, 'action')))
+            ];
+        } catch (Exception $e) {
+            error_log("Error getting user behavior summary: " . $e->getMessage());
+            return [
+                'activity' => [],
+                'active_hours' => [],
+                'feature_usage' => [],
+                'total_actions' => 0,
+                'unique_actions' => 0
+            ];
+        }
+    }
+
+    /**
      * Get user activity summary
      */
     public function getUserActivitySummary($userId, $days = 30) {

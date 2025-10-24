@@ -455,11 +455,11 @@ class DatabaseController {
             // Check buffer pool hit ratio
             $stmt = $this->db->prepare("SHOW STATUS LIKE 'Innodb_buffer_pool_read_requests'");
             $stmt->execute();
-            $readRequests = $stmt->fetch(PDO::FETCH_ASSOC)['Value'] ?? 0;
+            $readRequests = $stmt->fetch(\PDO::FETCH_ASSOC)['Value'] ?? 0;
             
             $stmt = $this->db->prepare("SHOW STATUS LIKE 'Innodb_buffer_pool_reads'");
             $stmt->execute();
-            $reads = $stmt->fetch(PDO::FETCH_ASSOC)['Value'] ?? 0;
+            $reads = $stmt->fetch(\PDO::FETCH_ASSOC)['Value'] ?? 0;
             
             if ($readRequests > 0) {
                 $hitRatio = round((1 - ($reads / $readRequests)) * 100, 2);

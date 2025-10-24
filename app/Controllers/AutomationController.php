@@ -41,6 +41,22 @@ class AutomationController {
     }
 
     /**
+     * Get workflows
+     */
+    public function getWorkflows() {
+        if (!Session::get('user_id')) {
+            echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+            exit;
+        }
+
+        $userId = Session::get('user_id');
+        $workflows = $this->workflowEngine->getUserWorkflows($userId);
+        
+        echo json_encode(['success' => true, 'workflows' => $workflows]);
+        exit;
+    }
+
+    /**
      * Create workflow
      */
     public function createWorkflow() {
